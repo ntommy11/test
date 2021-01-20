@@ -3,51 +3,34 @@ import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, StackActions } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { createMaterialBottomTabNavigator } from '@react-navigation/material-bottom-tabs';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import MainTabScreen from './screens/MainTabScreen';
 import MainScreen from './screens/MainScreen';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import HeaderScreen from './screens/Header';
 import RootStackScreen from './screens/RootStackScreen';
 
-import { AuthContext, UserContext } from './components/context';
+import { AuthContext } from './components/context';
 import AsyncStorage from '@react-native-community/async-storage';
 
 // 통신 패키지 
-import { ApolloClient, ApolloProvider, InMemoryCache, useMutation, useQuery, useLazyQuery } from "@apollo/client";
+import { ApolloClient, ApolloProvider, InMemoryCache, useMutation, useQuery } from "@apollo/client";
 import {LOGIN} from './queries';
-import {GET_USERID} from './queries';
 
 const client = new ApolloClient({
-  uri: "http://104.208.33.91:4000/",
+  uri: "https://countries.trevorblades.com",
   cache: new InMemoryCache(),
 });
 
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
-function getUsserInfo({ email }){
-  const { loading, error, data } = useQuery(GET_USERID,{
-    variables: { email: userName }
-  });
-  console.log("test");
-  console.log(loading);
-  console.log(data);
-  console.log(error);
-
-  let template = ``;
-  if (loading) { template = <Text>`로딩중... ${loading}`</Text>; }
-  if (error) { template = <Text>`에러발생: ${error}`</Text>; }
-  if (data) {
-    console.log(data);
-  }
-  return;
-}
-
-function Sub() {
+export default function App() {
   //const [isLoading, setIsLoading] = React.useState(true);
   //const [userToken, setUserToken] = React.useState(null);
-  const [userEmail, setUserEmail] = React.useState(null);
-  const [loginMutation] = useMutation(LOGIN);
 
+  const [loginMutation] = useMutation(LOGIN);
 
   const initialLoginState = {
     isLoading: true,
@@ -94,19 +77,17 @@ function Sub() {
       //setUserToken('abc');
       //setIsLoading(false);
       let userToken;
-      let data;
-      data = await loginMutation({
+      userToken = await loginMutation({
         variables: {
           email: userName,
           password: password
         }
       });
-      console.log(data.data.login);
-      userToken = data.data.login;
-      if (userToken){
+
+      if (userName == 'user' && password == '123'){
+        userToken = 'abc';
         try{
           await AsyncStorage.setItem('userToken', userToken);
-          await AsyncStorage.setItem('userEmail', userName);
         }catch(e){
           console.log(e);
         }
@@ -114,19 +95,14 @@ function Sub() {
       }
       console.log('user: ', userName);
       console.log('pass: ', password);
-      console.log('jwt: ', userToken);
-      setUserEmail(userName);
+      console.log('user token: ', userToken);
       dispatch({ type: "LOGIN", id: userName, token: userToken});
     },
     signOut: async () => {
-      console.log("sign out");
       //setUserToken(null);
       //setIsLoading(false);
       try{
-        let tmp = await AsyncStorage.getItem('userEmail');
-        console.log(tmp);
-        await AsyncStorage.removeItem('userToken');
-        await AsyncStorage.removeItem('userEmail');
+        userToken = await AsyncStorage.removeItem('userToken');
       }catch(e){
         console.log(e);
       }
@@ -136,24 +112,19 @@ function Sub() {
     signUp: () => {
       //setUserToken('abc');
       //setIsLoading(false);
-    },
+    }
   }));
 
   useEffect(() => {
     setTimeout(async () => {
       let userToken;
-      let userEmail;
       userToken = null;
-      userEmail = null;
       try{
         userToken = await AsyncStorage.getItem('userToken');
-        userEmail = await AsyncStorage.getItem('userEmail');
       }catch(e){
         console.log(e);
       }
-      console.log('userToken: ', userToken);
-      console.log('userEmail: ', userEmail);
-      setUserEmail(userEmail);
+      console.log('user token: ', userToken);
       dispatch({ type: "RETRIEVE_TOKEN", token: userToken});
     }, 3000);
   }, []);
@@ -167,25 +138,15 @@ function Sub() {
   }
   return (
     <AuthContext.Provider value={authContext}>
-      <UserContext.Provider value={userEmail}>
-        <NavigationContainer>
-          {loginState.userToken !== null ? (
-            <MainScreen />
-          ):(
-            <RootStackScreen />
-          )}
+      <NavigationContainer>
+        {loginState.userToken !== null ? (
+          <MainScreen />
+        ):(
+          <RootStackScreen />
+        )}
 
-        </NavigationContainer>
-        </UserContext.Provider>
+      </NavigationContainer>
     </AuthContext.Provider>
-  );
-}
-
-export default function App(){
-  return(
-    <ApolloProvider client={client}>
-      <Sub />
-    </ApolloProvider>
   );
 }
 
