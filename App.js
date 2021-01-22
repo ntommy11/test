@@ -12,22 +12,20 @@ import { AuthContext, UserContext } from './components/context';
 import AsyncStorage from '@react-native-community/async-storage';
 
 // 통신 패키지 
-import { ApolloClient, ApolloProvider, InMemoryCache, useMutation, useQuery, useLazyQuery } from "@apollo/client";
+import { ApolloClient, ApolloProvider, InMemoryCache, useMutation, useQuery, useLazyQuery, createHttpLink } from "@apollo/client";
 import {LOGIN} from './queries';
-import {GET_USERID} from './queries';
+import {SEE_REGIST_LECTURE} from './queries';
+
 
 const client = new ApolloClient({
   uri: "http://104.208.33.91:4000/",
   cache: new InMemoryCache(),
 });
-
 const Drawer = createDrawerNavigator();
 const Stack = createStackNavigator();
 
-function getUsserInfo({ email }){
-  const { loading, error, data } = useQuery(GET_USERID,{
-    variables: { email: userName }
-  });
+function getUserInfo( ){
+  const { loading, error, data } = useQuery(SEE_REGIST_LECTURE);
   console.log("test");
   console.log(loading);
   console.log(data);
@@ -44,15 +42,15 @@ function getUsserInfo({ email }){
 
 function Sub() {
   //const [isLoading, setIsLoading] = React.useState(true);
-  //const [userToken, setUserToken] = React.useState(null);
+  //const [token, setUserToken] = React.useState(null);
   const [userEmail, setUserEmail] = React.useState(null);
   const [loginMutation] = useMutation(LOGIN);
 
 
   const initialLoginState = {
     isLoading: true,
-    userName: null,
-    userToken: null,
+    email: null,
+    token: null,
   };
 
   const loginReducer = (prevState, action) => {
@@ -60,28 +58,29 @@ function Sub() {
       case 'RETRIEVE_TOKEN':
         return {
           ...prevState,
-          userToken: action.token,
+          email: action.email,
+          token: action.token,
           isLoading: false,
         };    
       case 'LOGIN':
         return {
           ...prevState,
-          userName: action.id,
-          userToken: action.token,
+          email: action.id,
+          token: action.token,
           isLoading: false,
         };  
       case 'LOGOUT':
         return {
           ...prevState,
-          userName: null,
-          userToken: null,
+          email: null,
+          token: null,
           isLoading: false,
         };  
       case 'REGISTER':
         return {
           ...prevState,
-          userName: action.id,
-          userToken: action.token,
+          email: action.id,
+          token: action.token,
           isLoading: false,
         };
     }
@@ -90,33 +89,33 @@ function Sub() {
   const [loginState, dispatch] = React.useReducer(loginReducer, initialLoginState);
 
   const authContext = React.useMemo(() => ({
-    signIn: async (userName, password) => {
+    signIn: async (email, password) => {
       //setUserToken('abc');
       //setIsLoading(false);
-      let userToken;
+      let token;
       let data;
       data = await loginMutation({
         variables: {
-          email: userName,
+          email: email,
           password: password
         }
       });
       console.log(data.data.login);
-      userToken = data.data.login;
-      if (userToken){
+      token = data.data.login;
+      if (token){
         try{
-          await AsyncStorage.setItem('userToken', userToken);
-          await AsyncStorage.setItem('userEmail', userName);
+          await AsyncStorage.setItem('token', token);
+          await AsyncStorage.setItem('userEmail', email);
         }catch(e){
           console.log(e);
         }
         
       }
-      console.log('user: ', userName);
+      console.log('user: ', email);
       console.log('pass: ', password);
-      console.log('jwt: ', userToken);
-      setUserEmail(userName);
-      dispatch({ type: "LOGIN", id: userName, token: userToken});
+      console.log('jwt: ', token);
+      setUserEmail(email);
+      dispatch({ type: "LOGIN", id: email, token: token});
     },
     signOut: async () => {
       console.log("sign out");
@@ -125,7 +124,7 @@ function Sub() {
       try{
         let tmp = await AsyncStorage.getItem('userEmail');
         console.log(tmp);
-        await AsyncStorage.removeItem('userToken');
+        await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('userEmail');
       }catch(e){
         console.log(e);
@@ -141,20 +140,20 @@ function Sub() {
 
   useEffect(() => {
     setTimeout(async () => {
-      let userToken;
+      let token;
       let userEmail;
-      userToken = null;
+      token = null;
       userEmail = null;
       try{
-        userToken = await AsyncStorage.getItem('userToken');
+        token = await AsyncStorage.getItem('token');
         userEmail = await AsyncStorage.getItem('userEmail');
       }catch(e){
         console.log(e);
       }
-      console.log('userToken: ', userToken);
+      console.log('token: ', token);
       console.log('userEmail: ', userEmail);
       setUserEmail(userEmail);
-      dispatch({ type: "RETRIEVE_TOKEN", token: userToken});
+      dispatch({ type: "RETRIEVE_TOKEN", token: token, email: userEmail});
     }, 3000);
   }, []);
 
@@ -167,9 +166,9 @@ function Sub() {
   }
   return (
     <AuthContext.Provider value={authContext}>
-      <UserContext.Provider value={userEmail}>
+      <UserContext.Provider value={loginState}>
         <NavigationContainer>
-          {loginState.userToken !== null ? (
+          {loginState.token !== null ? (
             <MainScreen />
           ):(
             <RootStackScreen />

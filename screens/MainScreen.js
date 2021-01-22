@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppRegistry } from 'react-native';
 
 import { StyleSheet, Text, View, Button } from 'react-native';
 import {Header} from 'react-native-elements';
-import { ApolloClient, ApolloProvider, InMemoryCache, useQuery } from "@apollo/client";
+import { ApolloClient, ApolloProvider, InMemoryCache, useQuery , createHttpLink} from "@apollo/client";
 
-import { GET_CONTINENTS } from "../queries";
+import { GET_CONTINENTS, GET_CONTINENT, SEE_REGIST_LECTURE } from "../queries";
 import { Appbar } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { AuthContext } from '../components/context';
+import { AuthContext, UserContext } from '../components/context';
 import AsyncStorage from '@react-native-community/async-storage';
 
 import HomeScreen from './HomeScreen';
@@ -47,60 +47,37 @@ const SampleData = () => {
         {template}
       </View>
     )
-  }
-const CardInfo = () => {
-    return (
-      <View style={styles.card}>
-        <Text style={styles.date}>2019년 9월 23일 월</Text>
-        <Text style={styles.time}>09:00</Text>
-        <Text style={styles.subject}>금융과 핀테크</Text>
-        <Text style={styles.week}>4주차</Text>
-        <View style={styles.where}>
-          <Text style={styles.location}>  SC수업 | 무궁관911호   </Text>
-        </View>
-      </View>
-    )
-}
-const CardInfo2 = () => {
-  return (
-
-    <View style={styles.card2}>
-      <Text style={{ color: "#787878" }}>컴퓨터 프로그래밍 - 9월 28일 09:00 아름관</Text>
-    </View>
-  )
-}
-
-const getUserEmail = async () => {
-  let userEmail = await AsyncStorage.getItem("userEmail");
-  return userEmail;
-}
-
-const Home0 = () => {
-    let userEmail;
-    AsyncStorage.getItem("userEmail").then((value)=>{
-      userEmail = value;
-    });
-    console.log("userEmail at home:", userEmail);
-    const {signOut} = React.useContext(AuthContext);
+  };
+  const SampleData2 = () => {
+    const { loading, error, data } = useQuery(SEE_REGIST_LECTURE);
+  
+    console.log("loading: ",loading);
+    console.log("data: ",data);
+    console.log("error:",error);
+    
     return (
       <View>
-        <CardInfo />
-        <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "600" }}>다음 일정</Text>
-        <CardInfo2 />
-        <Button
-        title="로그아웃"
-        onPress={() => signOut()}
-      />
-        <Text>
-          {userEmail}
-        </Text>
+        <Text>uri: "https://countries.trevorblades.com",</Text>
+        <Text>graphql 데이터받기 샘플출력</Text>
+
       </View>
     )
   }
+
+
 const MainContent = () => {
+  const userInfo = React.useContext(UserContext);
+  const client = new ApolloClient({
+    uri: "http://104.208.33.91:4000/",
+    cache: new InMemoryCache(),
+    headers: {
+      Authorization: `Bearer ${userInfo.token}`
+    }
+  });
+  console.log(client);
   return (
     <ApolloProvider client={client}>
-      <SampleData />
+      <SampleData2 />
     </ApolloProvider>
   )
 }
@@ -113,15 +90,6 @@ const TwoLineText = () =>{
     )
   }
   
-  const Schedule = ()=>{
-    return(
-      <View>
-        <Text style={{fontSize:50, textAlign:"center", padding:30}}>시간표구현</Text>
-  
-        <Text style={{fontSize:50, textAlign:"center", padding:30}}>시간표구현2</Text>
-      </View>
-    )
-  }
 export default function MainScreen() {
     return (
         <>

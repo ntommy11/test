@@ -25,3 +25,38 @@ export const GET_USERID = gql`
         }
     }
 `;
+export const GET_CONTINENT = gql`
+query
+  findContinent($code: ID!){
+    continent(code: $code){
+      name
+    }
+  }
+`;
+
+export const SEE_REGIST_LECTURE = gql`
+query {
+    seeRegistLecture{
+        id
+        name
+        room
+        classes{
+            VOD
+            startTime
+            endTime
+            week
+        }
+    }
+}
+`;
+
+export const SEE_ALL_CLASSES = gql`
+query find_classes($LectureId: Int, $week: Int){
+    seeAllClasses(LectureId: $LectureId, week: $week){
+        VOD
+        startTime
+        endTime
+        LectureId
+    }
+}
+`
