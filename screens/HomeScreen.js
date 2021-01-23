@@ -1,8 +1,14 @@
 import React, { useContext, useState } from 'react';
-import { StyleSheet, Text, View, Button, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Button, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { ApolloClient, InMemoryCache, useQuery, ApolloProvider } from "@apollo/client";
 import { AuthContext, UserContext } from '../components/context';
 import { SEE_REGIST_LECTURE } from '../queries';
+import moment from 'moment';
+
+const now = new Date();
+const TIMEZONE = now.getTimezoneOffset()*60000;
+
+const weekday = ['일','월', '화', '수', '목', '금', '토'];
 
 const currentClass = {
   date: "2019년 9월 23일 월",
@@ -12,35 +18,62 @@ const currentClass = {
   type: "SC수업",
   room: "무궁관 911호"
 }
+// 객체가 비어있는지 확인하는 함수 
+function is_empty(obj) {
+  return Object.keys(obj).length === 0;
+}
 
-
-const CardInfo = ({ client }) => {
-  const { loading, error, data } = useQuery(SEE_REGIST_LECTURE);
-
-  console.log("loading: ", loading);
-  console.log("data: ", data);
-  console.log("error:", error);
-  if(data){
-    console.log(data.seeRegistLecture);
-    let class_list;
-    
+const CardInfo = ({current_class}) => {
+  console.log("current class at CardInfo: ", current_class);
+  console.log("starttime:", current_class.start_time.getTime());
+  // 더이상 수업이 없는 경우 처리
+  if (is_empty(current_class)){
+    return (
+      <View style={styles.card}>
+        <Text style={styles.subject}>수업이 없습니다</Text>
+      </View>
+    )
   }
+  // 현재 수업 데이터 전처리
+  let year = current_class.start_time.getFullYear();
+  let month = current_class.start_time.getMonth()+1;
+  let date = current_class.start_time.getDate();
+  let day = weekday[current_class.start_time.getDay()];
+  let hours = current_class.start_time.getHours();
+  let minutes = current_class.start_time.getMinutes();
+  
+
   return (
     <View style={styles.card}>
-      <Text style={styles.date}>{currentClass.date}</Text>
-      <Text style={styles.time}>{currentClass.time}</Text>
-      <Text style={styles.subject}>{currentClass.name}</Text>
-      <Text style={styles.week}>{currentClass.week}</Text>
+      <Text style={styles.date}>{year}년 {month}월 {date}일 {day}요일</Text>
+      <Text style={styles.time}>{hours>=10? hours: `0${hours}`}:{minutes >= 10? minutes: `0${minutes}`}</Text>
+      <Text style={styles.subject}>{current_class.name}</Text>
+      <Text style={styles.week}>{current_class.week}주차</Text>
       <View style={styles.where}>
-        <Text style={styles.location}> {currentClass.type} | {currentClass.room}   </Text>
+        <Text style={styles.location}> {current_class.vod? "VOD":"SC"} | {current_class.room}   </Text>
       </View>
     </View>
   )
 }
-const CardInfo2 = () => {
+const CardInfo2 = ({next_class}) => {
+  console.log("next class in CardInfo2: ", next_class);
+  if (is_empty(next_class)){
+    return (
+      <View style={styles.card2}>
+        <Text style={{ color: "#787878" }}>일정이 더이상 없습니다.</Text>
+      </View>
+    )
+  }
+  let name = next_class.name;
+  let room = next_class.room;
+  let month = next_class.start_time.getMonth()+1;
+  let date = next_class.start_time.getDate();
+  let day = weekday[next_class.start_time.getDay()];
+  let hours = next_class.start_time.getHours();
+  let minutes = next_class.start_time.getMinutes();
   return (
     <View style={styles.card2}>
-      <Text style={{ color: "#787878" }}>컴퓨터 프로그래밍 - 9월 28일 09:00 아름관</Text>
+      <Text style={{ color: "#787878" }}>{name} - {month}월 {date}일 {hours>=10? hours: `0${hours}`}:{minutes >= 10? minutes: `0${minutes}`} {room} </Text>
     </View>
   )
 }
@@ -79,7 +112,85 @@ const Notification2 = () => {
   )
 }
 
+function Main(){
+  const { signOut } = React.useContext(AuthContext);
+  // 강의 정보 받기.
+  const { loading, error, data } = useQuery(SEE_REGIST_LECTURE);
 
+  console.log("loading: ",loading);
+  console.log("data   : " , data);
+  console.log("error  : ", error );
+
+  if(loading){
+    console.log("loading...");
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    )    
+  }
+  if(data){
+    // 데이터 전처리. 
+    let lectures = data.seeRegistLecture;
+    console.log("length: ", lectures.length);
+    let class_list = [];
+    for(let i=0; i<lectures.length; i++){
+      let num_of_classes = lectures[i].classes.length;
+      for(let j=0; j<num_of_classes; j++){
+        let start_time = new Date(Number(lectures[i].classes[j].startTime)+TIMEZONE);
+        console.log("timezone offset: ", start_time.getTimezoneOffset());
+        let end_time = new Date(Number(lectures[i].classes[j].endTime)+TIMEZONE);
+        let class_obj = {
+          name: lectures[i].name,
+          room: lectures[i].room,
+          start_time: start_time,
+          end_time: end_time,
+          week: lectures[i].classes[j].week,
+          vod: lectures[i].classes[j].VOD
+        }
+        class_list.push(class_obj);
+      }
+    }
+    // 수업을 빠른 시간순으로 정렬 
+    class_list.sort((a,b)=>{
+      return a.start_time.getTime() - b.start_time.getTime();
+    })
+    console.log(class_list);
+    // 현재 시간 포함 가장 가까운 수업을 찾는다.
+    let current_class = 0;
+    let next_class = 0;
+    let now = new Date();
+    for (let i=0; i<class_list.length; i++){
+      if (now <= class_list[i].start_time){
+        current_class = i;
+        if(current_class+1 < class_list.length) next_class = i+1;
+        break;
+      }
+    }
+    console.log(now)
+    console.log(class_list[current_class]);
+    console.log(class_list[next_class]);
+    return(
+      <View>
+      <CardInfo current_class={class_list[current_class]}/>
+      <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>다음 일정</Text>
+      <CardInfo2 next_class={class_list[next_class]}/>
+      <TouchableOpacity style={{ borderWidth: 1, borderColor: "black", width: 100, borderStyle: "dashed" }} onPress={() => alert("공지사항 더보기")}>
+        <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>공지사항</Text>
+      </TouchableOpacity>
+      <Notification />
+      <TouchableOpacity style={{ borderWidth: 1, borderColor: "black", width: 120, borderStyle: "dashed" }} onPress={() => alert("학생회 공지사항 더보기")}>
+        <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>학생회 공지사항</Text>
+      </TouchableOpacity>
+      <Notification2 />
+      <Button
+        title="로그아웃"
+        onPress={() => signOut()}
+      />
+    </View>
+    )
+  }
+}
 
 
 export default function HomeScreen() {
@@ -92,27 +203,10 @@ export default function HomeScreen() {
     }
   });
 
-  const { signOut } = React.useContext(AuthContext);
   return (
     <ApolloProvider client={client}>
       <Text style={styles.date}>[{userInfo.email}] 로 로그인됨</Text>
-      <View>
-        <CardInfo client={client} />
-        <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>다음 일정</Text>
-        <CardInfo2 />
-        <TouchableOpacity style={{ borderWidth: 1, borderColor: "black", width: 100, borderStyle: "dashed" }} onPress={() => alert("공지사항 더보기")}>
-          <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>공지사항</Text>
-        </TouchableOpacity>
-        <Notification />
-        <TouchableOpacity style={{ borderWidth: 1, borderColor: "black", width: 120, borderStyle: "dashed" }} onPress={() => alert("학생회 공지사항 더보기")}>
-          <Text style={{ textAlign: "left", paddingLeft: 30, fontWeight: "700", paddingTop: 10 }}>학생회 공지사항</Text>
-        </TouchableOpacity>
-        <Notification2 />
-        <Button
-          title="로그아웃"
-          onPress={() => signOut()}
-        />
-      </View>
+      <Main />
     </ApolloProvider>
   )
 }
