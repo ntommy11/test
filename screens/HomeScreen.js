@@ -159,7 +159,7 @@ function Main(){
     // 현재 시간 포함 가장 가까운 수업을 찾는다.
     let current_class = 0;
     let next_class = 0;
-    let now = new Date();
+    let now = new Date(2019,8,22);                     // 나중에 현재 시간으로 수정되어야 함
     for (let i=0; i<class_list.length; i++){
       if (now <= class_list[i].start_time){
         current_class = i;
@@ -221,6 +221,7 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   card2: {
+    backgroundColor: "white",
     padding: 10,
     marginVertical: 5,
     marginHorizontal: 25,
@@ -231,6 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   card: {
+    backgroundColor: "white",
     padding: 20,
     margin: 25,
     borderWidth: 1,
